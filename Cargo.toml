@@ -1,0 +1,10 @@
+# The implementation crate arrives later. Today the workspace holds one tool:
+# the renderer that keeps CONTRACT.md downstream of the data it states.
+[workspace]
+resolver = "3"
+members = ["tools/contract"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
