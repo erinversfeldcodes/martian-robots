@@ -1,0 +1,15 @@
+[package]
+name = "contract"
+version = "0.1.0"
+description = "Renders and checks CONTRACT.md from the contract's data files"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# A tool, not a shipped artifact. Dependencies here are free to exist; the
+# implementation crate this repository is for carries its own, much stricter,
+# answer to that question.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
