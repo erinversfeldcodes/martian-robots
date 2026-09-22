@@ -1,6 +1,3 @@
 /target
 **/*.rs.bk
 .DS_Store
-
-# Rendered from contract/ on demand. The contract is the data, not this.
-/CONTRACT.md
