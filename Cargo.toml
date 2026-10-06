@@ -1,10 +1,22 @@
-# The implementation crate arrives later. Today the workspace holds one tool:
-# the renderer that keeps CONTRACT.md downstream of the data it states.
-[workspace]
-resolver = "3"
-members = ["tools/contract"]
-
-[workspace.package]
+[package]
+name = "martian-robots"
+version = "0.1.0"
+description = "An implementation of the Martian Robots CLI contract"
 edition = "2024"
 rust-version = "1.93"
 license = "MIT"
+repository = "https://github.com/erinversfeldcodes/martian-robots"
+
+# Nothing at runtime. The contract fixes a text interface on stdin and stdout,
+# and the standard library covers every part of it.
+[dependencies]
+
+# The contract, at a pinned version, used at build time only. This crate does
+# not restate the limits or the vocabularies: it reads them out of the release
+# that the conformance suite will grade it against, so the two cannot disagree
+# about what they are. Nothing from here is linked into the binary.
+[build-dependencies]
+martian-robots-verify = { git = "https://github.com/erinversfeldcodes/martian-robots-tests", tag = "v2.1.0" }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }

@@ -3,14 +3,6 @@
 version = 4
 
 [[package]]
-name = "contract"
-version = "0.1.0"
-dependencies = [
- "serde",
- "toml",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -30,6 +22,22 @@ checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
  "hashbrown",
+]
+
+[[package]]
+name = "martian-robots"
+version = "0.1.0"
+dependencies = [
+ "martian-robots-verify",
+]
+
+[[package]]
+name = "martian-robots-verify"
+version = "2.1.0"
+source = "git+https://github.com/erinversfeldcodes/martian-robots-tests?tag=v2.1.0#6b43e0dac4f8fe47e79bafe53ae3af3f5486455a"
+dependencies = [
+ "serde",
+ "toml",
 ]
 
 [[package]]

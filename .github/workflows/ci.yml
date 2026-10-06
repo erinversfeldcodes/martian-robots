@@ -12,8 +12,21 @@ defaults:
   run:
     shell: bash
 
+env:
+  # The suite release this repository is built and graded against. Cargo.toml
+  # pins the same tag as a build dependency and the README installs it; a test
+  # fails if the three ever disagree.
+  SUITE_TAG: v2.1.0
+
+  # Case groups the implementation is expected to pass. Each slice of the port
+  # adds the groups it completes, so the diff of this line is the record of
+  # what conformance has been claimed. Groups not listed here are still graded
+  # on every run, in the ungated step below, which is what lets this repository
+  # be green while it is incomplete.
+  ENFORCED: ""
+
 jobs:
-  verify:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -27,7 +40,34 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Linted, warnings denied
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
-      - name: The contract renders
-        run: cargo run --quiet -p contract -- check
+      - name: Tested
+        run: cargo test --quiet
+
+      - name: Built
+        run: cargo build --release --locked
+
+      # The suite carries the contract, so this installs the definition of
+      # correct and the thing that checks it together, at one pinned version.
+      - name: Install the conformance suite
+        run: |
+          cargo install --git https://github.com/erinversfeldcodes/martian-robots-tests \
+            --tag "$SUITE_TAG" --locked --bin martian-robots-verify
+          martian-robots-verify --version
+
+      # Never fails the build: the whole grade belongs in the log from the
+      # first commit, so what is left to do is visible rather than discoverable.
+      - name: Graded, for the record
+        run: martian-robots-verify --bin ./target/release/martian-robots || true
+
+      - name: Graded, as a gate
+        run: |
+          if [ -z "$ENFORCED" ]; then
+            echo "No case group is enforced yet. The step above is the record."
+            exit 0
+          fi
+          for group in $ENFORCED; do
+            echo "== $group"
+            martian-robots-verify --bin ./target/release/martian-robots --case "$group"
+          done
