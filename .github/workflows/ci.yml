@@ -16,7 +16,7 @@ env:
   # The suite release this repository is built and graded against. Cargo.toml
   # pins the same tag as a build dependency and the README installs it; a test
   # fails if the three ever disagree.
-  SUITE_TAG: v2.1.0
+  SUITE_TAG: v2.2.0
 
   # Case groups the implementation is expected to pass. Each slice of the port
   # adds the groups it completes, so the diff of this line is the record of

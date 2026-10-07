@@ -14,7 +14,7 @@ The suite is installed from a pinned release, and it carries the contract inside
 
 ```
 cargo install --git https://github.com/erinversfeldcodes/martian-robots-tests \
-  --tag v2.1.0 --locked --bin martian-robots-verify
+  --tag v2.2.0 --locked --bin martian-robots-verify
 cargo build --release
 martian-robots-verify --bin ./target/release/martian-robots
 ```
