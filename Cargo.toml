@@ -20,3 +20,11 @@ martian-robots-verify = { git = "https://github.com/erinversfeldcodes/martian-ro
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
+
+# The library exists so the binary and the tests can exercise the same code,
+# and nothing outside this repository depends on it. These three lints describe
+# obligations to callers who do not exist; satisfying them would add attributes
+# and doc sections that state nothing true.
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

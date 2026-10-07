@@ -29,8 +29,18 @@ This crate does not restate the limits or the vocabularies. `build.rs` reads the
 
 The same version is named by `Cargo.toml`, by `SUITE_TAG` in the workflow, and by the command above. `tests/pin.rs` fails if they disagree, because a program built against one contract and graded against another would otherwise look merely wrong.
 
+## How it is built
+
+The split between modules follows what the contract can and cannot say.
+
+`contract` is generated: `build.rs` reads the pinned release and emits the limits, the separators and the two vocabularies, so this crate names a limit without deciding what it is.
+
+`read` follows the grammar's productions and cites the ruling that governs whatever it refuses. It collects every violation rather than stopping at the first, because R25 asks for every one found in one pass — which is the hardest part of the contract and the part a parser generator would be worst at.
+
+`simulate` is §2.2. The contract states it only in prose, so it is hand-written and the suite is what proves it right. Two things there are judgement the contract does not make machine-readable: the compass is rotational, which only the problem statement fixes, and a scent belongs to the cell a robot was lost from rather than to the direction it was facing — a reading the problem statement's own sample cannot distinguish.
+
+`write` is the output format, and emits `\n` whatever the input used.
+
 ## Status
 
-The implementation is being ported in slices, and `ENFORCED` in `.github/workflows/ci.yml` says how far it has got. It lists the case groups CI holds this program to, and each slice adds the groups it completes, so the diff of that one line is the record of what has been claimed. Groups not yet listed are still graded on every run, in the ungated step before the gate, which keeps what is left to do in the log rather than in this file.
-
-Nothing is enforced yet. A stub that refuses every input passes 7 of the 63 cases by accident, because for those no stdout plus a non-zero exit plus any diagnostic is the whole demand. That is the baseline the first slice of the port has to beat.
+Conforming. The suite's 63 cases pass, and all four generators report nothing across the seeds tried. CI enforces the whole suite rather than a list of groups, and also runs `--seed random` so a defect the fixed seed happens not to reach still has somewhere to surface.

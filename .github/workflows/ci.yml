@@ -18,12 +18,10 @@ env:
   # fails if the three ever disagree.
   SUITE_TAG: v2.2.0
 
-  # Case groups the implementation is expected to pass. Each slice of the port
-  # adds the groups it completes, so the diff of this line is the record of
-  # what conformance has been claimed. Groups not listed here are still graded
-  # on every run, in the ungated step below, which is what lets this repository
-  # be green while it is incomplete.
-  ENFORCED: ""
+  # The implementation conforms, so the whole suite is the gate rather than a
+  # list of groups that have been claimed. This line was how incompleteness was
+  # expressed while the port was in progress; there is nothing left to exclude.
+  ENFORCED: "all"
 
 jobs:
   build:
@@ -56,18 +54,28 @@ jobs:
             --tag "$SUITE_TAG" --locked --bin martian-robots-verify
           martian-robots-verify --version
 
-      # Never fails the build: the whole grade belongs in the log from the
-      # first commit, so what is left to do is visible rather than discoverable.
-      - name: Graded, for the record
-        run: martian-robots-verify --bin ./target/release/martian-robots || true
-
-      - name: Graded, as a gate
+      # The catalogue and all four generators, at the suite's default budgets
+      # and its fixed default seed, so two runs of the same code grade the same
+      # corpus. A failure here is a conformance failure, not a flake.
+      - name: Graded against the whole suite
         run: |
-          if [ -z "$ENFORCED" ]; then
-            echo "No case group is enforced yet. The step above is the record."
+          if [ "$ENFORCED" = "all" ]; then
+            martian-robots-verify --bin ./target/release/martian-robots
             exit 0
           fi
+          if [ -z "$ENFORCED" ]; then
+            echo "Nothing is enforced yet."
+            martian-robots-verify --bin ./target/release/martian-robots || true
+            exit 0
+          fi
+          martian-robots-verify --bin ./target/release/martian-robots || true
           for group in $ENFORCED; do
             echo "== $group"
             martian-robots-verify --bin ./target/release/martian-robots --case "$group"
           done
+
+      # A wider corpus than the gate uses, so a defect the fixed seed happens
+      # not to reach still surfaces. It prints the seed it chose, which is the
+      # seed to pass back to --seed when it finds something.
+      - name: Explored on a corpus nobody pinned
+        run: martian-robots-verify --bin ./target/release/martian-robots --quiet --seed random
