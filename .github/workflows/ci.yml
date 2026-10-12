@@ -16,7 +16,7 @@ env:
   # The suite release this repository is built and graded against. Cargo.toml
   # pins the same tag as a build dependency and the README installs it; a test
   # fails if the three ever disagree.
-  SUITE_TAG: v2.2.0
+  SUITE_TAG: v2.3.0
 
   # The implementation conforms, so the whole suite is the gate rather than a
   # list of groups that have been claimed. This line was how incompleteness was

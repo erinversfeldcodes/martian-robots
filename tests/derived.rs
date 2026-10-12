@@ -10,10 +10,10 @@ use martian_robots::contract;
 
 #[test]
 fn the_pinned_contract_states_these_facts() {
-    assert_eq!(contract::VERSION, "2.2.0");
+    assert_eq!(contract::VERSION, "2.3.0");
     assert_eq!(contract::MAX_COORDINATE, 50);
     assert_eq!(contract::MAX_INSTRUCTIONS, 99);
-    assert_eq!(contract::ORIENTATIONS, ['N', 'S', 'E', 'W']);
+    assert_eq!(contract::ORIENTATIONS, ['N', 'E', 'S', 'W']);
     assert_eq!(contract::INSTRUCTIONS, ['L', 'R', 'F']);
     assert_eq!(contract::SEPARATORS, [' ', '\t']);
 }

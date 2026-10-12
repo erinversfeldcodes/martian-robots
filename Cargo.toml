@@ -16,7 +16,7 @@ repository = "https://github.com/erinversfeldcodes/martian-robots"
 # that the conformance suite will grade it against, so the two cannot disagree
 # about what they are. Nothing from here is linked into the binary.
 [build-dependencies]
-martian-robots-verify = { git = "https://github.com/erinversfeldcodes/martian-robots-tests", tag = "v2.2.0" }
+martian-robots-verify = { git = "https://github.com/erinversfeldcodes/martian-robots-tests", tag = "v2.3.0" }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

@@ -226,8 +226,8 @@ dependencies = [
 
 [[package]]
 name = "martian-robots-verify"
-version = "2.2.0"
-source = "git+https://github.com/erinversfeldcodes/martian-robots-tests?tag=v2.2.0#b93287d89e7916140972150f4262d87ed5ee6cbb"
+version = "2.3.0"
+source = "git+https://github.com/erinversfeldcodes/martian-robots-tests?tag=v2.3.0#7245db876f86f542b499fb5bd9b948b8d16e1959"
 dependencies = [
  "prost",
  "prost-build",
