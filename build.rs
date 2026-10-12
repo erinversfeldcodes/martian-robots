@@ -1,15 +1,26 @@
-//! Derive this implementation's constants from the contract it is graded
-//! against.
+//! Derive this implementation's constants and vocabularies from the contract
+//! it is graded against.
 //!
-//! The limits and the vocabularies are facts the contract states once. Writing
-//! them out again here would make this crate a second place for them to live,
-//! and a second place is where drift happens: a coordinate limit raised in the
-//! contract and missed here is a conformance failure that looks like a bug.
+//! The limits, the letters, the compass and the shape of an answer are facts
+//! the contract states once. Writing them out again here would make this crate
+//! a second place for them to live, and a second place is where drift happens:
+//! a coordinate limit raised in the contract and missed here is a conformance
+//! failure that looks like a bug, and a command added to the contract and
+//! missed here is a character the program rejects without anyone noticing.
 //!
-//! So they are read, at build time, out of the pinned release. The suite is a
-//! build dependency only, and none of it is linked into the program.
+//! So they are read, at build time, out of the pinned release — the constants
+//! directly, and the `Orientation`, `Instruction` and answer-writing code
+//! generated from the semantics. The suite is a build dependency only, and
+//! none of it is linked into the program.
+//!
+//! What is *not* here is §2.2: what a scent does, and that a robot leaving the
+//! world stops. The contract says those in prose, so `simulate` says them in
+//! Rust. The division is deliberate — this file generates the vocabulary the
+//! simulator dispatches on, and nothing about what the dispatch decides.
 
 use std::fmt::Write as _;
+
+use martian_robots_verify::contract::{Contract, Effect};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -61,6 +72,284 @@ fn main() {
         contract.grammar.separators
     );
 
+    let compass = compass(&contract);
+    derived.push_str(&orientation(&compass));
+    derived.push_str(&instruction(&contract, compass.len()));
+    derived.push_str(&answer(&contract));
+
     let out = std::path::Path::new(&std::env::var("OUT_DIR").expect("OUT_DIR")).join("contract.rs");
     std::fs::write(&out, derived).expect("to write the derived contract");
+}
+
+/// The orientations in compass order: clockwise, starting from north.
+///
+/// The contract lists them in whatever order reads well, and the order matters
+/// because turning is rotation through it. Rather than asking the contract for
+/// the sequence, this derives it from the step each orientation takes. North
+/// is the direction from `(x, y)` to `(x, y + 1)`, so the clockwise angle from
+/// that step sorts the compass.
+fn compass(contract: &Contract) -> Vec<(char, i32, i32)> {
+    let mut points: Vec<(char, i32, i32)> = contract
+        .semantics
+        .orientations
+        .iter()
+        .map(|orientation| (letter(&orientation.letter), orientation.dx, orientation.dy))
+        .collect();
+    points.sort_by(|a, b| clockwise(a.1, a.2).total_cmp(&clockwise(b.1, b.2)));
+    points
+}
+
+/// The clockwise angle from north of a step, in radians, as a sort key.
+fn clockwise(dx: i32, dy: i32) -> f64 {
+    let angle = f64::from(dx).atan2(f64::from(dy));
+    if angle < 0.0 {
+        angle + std::f64::consts::TAU
+    } else {
+        angle
+    }
+}
+
+/// The single character the contract gives a vocabulary entry.
+fn letter(spelling: &str) -> char {
+    let mut letters = spelling.chars();
+    let letter = letters
+        .next()
+        .unwrap_or_else(|| panic!("the contract gives a vocabulary entry no letter"));
+    assert!(
+        letters.next().is_none(),
+        "the contract spells a vocabulary entry {spelling:?}, which is not one character"
+    );
+    letter
+}
+
+/// A push of literal text. One character goes out through `push`, because
+/// `push_str` with a one-character string is a lint and generated code is
+/// linted like any other.
+fn pushed(literal: &str) -> String {
+    let mut letters = literal.chars();
+    match (letters.next(), letters.next()) {
+        (Some(only), None) => format!("    written.push({only:?});"),
+        _ => format!("    written.push_str({literal:?});"),
+    }
+}
+
+/// `x`, `x + 1`, `x - 1` — written out rather than `x + 0`, which is a lint.
+fn offset(name: &str, by: i32) -> String {
+    match by {
+        0 => name.to_owned(),
+        by if by > 0 => format!("{name} + {by}"),
+        by => format!("{name} - {}", by.unsigned_abs()),
+    }
+}
+
+/// The orientation type, from the contract's semantics.
+fn orientation(compass: &[(char, i32, i32)]) -> String {
+    let points = compass.len();
+    assert!(
+        points > 0 && 360 % points == 0,
+        "the contract has {points} orientations, which do not divide a full turn"
+    );
+    let per_point = 360 / points;
+
+    let mut variants = String::new();
+    let mut every = Vec::new();
+    let mut reading = String::new();
+    let mut writing = String::new();
+    let mut steps = String::new();
+    for (letter, dx, dy) in compass {
+        let _ = writeln!(variants, "    {letter},");
+        every.push(format!("Self::{letter}"));
+        let _ = writeln!(reading, "            '{letter}' => Some(Self::{letter}),");
+        let _ = writeln!(writing, "            Self::{letter} => '{letter}',");
+        let _ = writeln!(
+            steps,
+            "            Self::{letter} => ({}, {}),",
+            offset("x", *dx),
+            offset("y", *dy)
+        );
+    }
+    let every = every.join(", ");
+
+    format!(
+        r#"
+/// Which way a robot faces.
+///
+/// The variants are named for the letters the grammar admits, because letters
+/// are what the contract states — it never says "north". Their order is the
+/// compass, derived at build time from the step each one takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Orientation {{
+{variants}}}
+
+impl Orientation {{
+    /// Every orientation, in the order a clockwise turn walks through them.
+    pub const COMPASS: [Self; {points}] = [{every}];
+
+    /// How far one point of the compass is, in degrees.
+    pub const PER_POINT: i32 = {per_point};
+
+    pub fn from_char(letter: char) -> Option<Self> {{
+        match letter {{
+{reading}            _ => None,
+        }}
+    }}
+
+    pub fn as_char(self) -> char {{
+        match self {{
+{writing}        }}
+    }}
+
+    /// Turning, as a rotation through the compass. The contract measures turns
+    /// clockwise-positive, so a left turn arrives as a negative angle and
+    /// lands where counting backwards would.
+    #[must_use]
+    pub fn turned(self, degrees: i32) -> Self {{
+        let points = i32::try_from(Self::COMPASS.len()).expect("a compass of sane size");
+        let steps = (degrees / Self::PER_POINT).rem_euclid(points);
+        let steps = usize::try_from(steps).expect("a non-negative remainder");
+        let at = Self::COMPASS
+            .iter()
+            .position(|point| *point == self)
+            .expect("every orientation is on the compass");
+        Self::COMPASS[(at + steps) % Self::COMPASS.len()]
+    }}
+
+    /// The cell one step ahead, as signed numbers, because a robot facing
+    /// south at `y = 0` steps to `-1` and the contract wants that detected
+    /// rather than wrapped.
+    pub fn ahead(self, x: u32, y: u32) -> (i64, i64) {{
+        let (x, y) = (i64::from(x), i64::from(y));
+        match self {{
+{steps}        }}
+    }}
+}}
+"#
+    )
+}
+
+/// The instruction type, and what each instruction does.
+///
+/// A command added to the contract appears here with its effect, so the
+/// simulator dispatches on what an instruction *does* and not on a letter
+/// somebody taught it. That is what "provision should be made for additional
+/// command types" buys: adding one is an edit to the contract, not an edit to
+/// a match arm nobody remembers exists.
+fn instruction(contract: &Contract, points: usize) -> String {
+    let per_point = i32::try_from(360 / points).expect("a compass of sane size");
+
+    let mut variants = String::new();
+    let mut reading = String::new();
+    let mut effects = String::new();
+    for command in &contract.semantics.commands {
+        let letter = letter(&command.letter);
+        let _ = writeln!(variants, "    {letter},");
+        let _ = writeln!(reading, "            '{letter}' => Some(Self::{letter}),");
+        let effect = match command.effect {
+            Some(Effect::TurnDegrees(degrees)) => {
+                assert!(
+                    degrees % per_point == 0,
+                    "the contract turns {letter} by {degrees} degrees, \
+                     which is not a whole number of {per_point}-degree compass points"
+                );
+                format!("Effect::Turn({degrees})")
+            }
+            Some(Effect::Advance(by)) => format!("Effect::Advance({by})"),
+            None => panic!("the contract gives {letter} no effect"),
+        };
+        let _ = writeln!(effects, "            Self::{letter} => {effect},");
+    }
+
+    format!(
+        r"
+/// What an instruction does.
+///
+/// Two kinds, because the contract has two: an in-place rotation and a move in
+/// the direction faced. A third would be a change to the schema, which is the
+/// point at which somebody should be thinking about it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Effect {{
+    /// Rotate in place by this many degrees, clockwise-positive.
+    Turn(i32),
+    /// Move this many grid points in the direction currently faced.
+    Advance(u32),
+}}
+
+/// One instruction, named for the letter the grammar admits for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Instruction {{
+{variants}}}
+
+impl Instruction {{
+    pub fn from_char(letter: char) -> Option<Self> {{
+        match letter {{
+{reading}            _ => None,
+        }}
+    }}
+
+    pub fn effect(self) -> Effect {{
+        match self {{
+{effects}        }}
+    }}
+}}
+"
+    )
+}
+
+/// How a robot's final position is written.
+///
+/// The contract holds the line as a template — `{x}`, `{y}` and
+/// `{orientation}` in among literal text — so the separator, the field order
+/// and the suffix are all its to choose. This compiles that template into
+/// pushes, which means a reordered template reorders the output rather than
+/// silently disagreeing with a `format!` string written here.
+fn answer(contract: &Contract) -> String {
+    let output = contract
+        .semantics
+        .output
+        .as_ref()
+        .expect("the contract to state how an answer is written");
+
+    let mut body = String::new();
+    let mut rest = output.line.as_str();
+    while let Some(at) = rest.find('{') {
+        let (literal, tail) = rest.split_at(at);
+        if !literal.is_empty() {
+            let _ = writeln!(body, "{}", pushed(literal));
+        }
+        let end = tail.find('}').unwrap_or_else(|| {
+            panic!(
+                "the output line {:?} has an unclosed placeholder",
+                output.line
+            )
+        });
+        let placeholder = &tail[1..end];
+        let push = match placeholder {
+            "x" => "    written.push_str(&x.to_string());",
+            "y" => "    written.push_str(&y.to_string());",
+            "orientation" => "    written.push(orientation);",
+            other => panic!("the output line names {other:?}, which is not part of a robot"),
+        };
+        let _ = writeln!(body, "{push}");
+        rest = &tail[end + 1..];
+    }
+    if !rest.is_empty() {
+        let _ = writeln!(body, "{}", pushed(rest));
+    }
+
+    format!(
+        r"
+/// Append one robot's line to `written`, as the contract spells it.
+///
+/// Numbers go out as canonical decimal — `to_string` on an unsigned integer
+/// emits no leading zeros and no sign, which is what the contract asks for.
+pub fn push_line(written: &mut String, x: u32, y: u32, orientation: char, lost: bool) {{
+{body}    if lost {{
+        {lost_suffix}
+    }}
+{line_ending}
+}}
+",
+        lost_suffix = pushed(&output.lost_suffix).trim_start(),
+        line_ending = pushed(&output.line_ending),
+    )
 }
